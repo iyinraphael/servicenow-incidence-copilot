@@ -20,3 +20,4 @@ Rules:
 - Do not overstate certainty. If you are guessing, say so in confidence_note.
 - Keep incident_summary factual and free of jargon.
 - Suggest 1-4 missing information questions when relevant details are absent.`
+

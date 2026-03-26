@@ -1,4 +1,4 @@
-export default function TriageResults({ result, onReset }) {
+export default function TriageResults({ result, onReset, onSearchKB }) {
     // Color mapping for priority badges
     const priorityStyle = {
       P1: { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' },
@@ -123,8 +123,7 @@ export default function TriageResults({ result, onReset }) {
             ← New Incident
           </button>
           <button
-            disabled
-            title="Coming in Phase 2"
+            onClick={onSearchKB}
             style={{
               padding: '10px 20px',
               fontSize: 14,
@@ -132,8 +131,7 @@ export default function TriageResults({ result, onReset }) {
               color: 'white',
               border: 'none',
               borderRadius: 6,
-              opacity: 0.5,
-              cursor: 'not-allowed',
+              cursor: 'pointer',
             }}
           >
             Search Knowledge Base →

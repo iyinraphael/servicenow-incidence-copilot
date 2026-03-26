@@ -1,0 +1,102 @@
+[
+    {
+      "article_id": "KB001",
+      "title": "VPN Login Failure After Active Directory Password Reset",
+      "category": "Access/Authentication",
+      "services": ["VPN", "Active Directory"],
+      "keywords": ["vpn", "password", "reset", "authentication", "failed", "credentials", "cached", "active directory", "ad"],
+      "content": "When a user resets their Active Directory password, cached VPN credentials may become stale. The VPN client stores a local credential cache that does not automatically sync with AD. Resolution steps: 1) Open Windows Credential Manager (Control Panel > Credential Manager). 2) Find and delete any entries related to the VPN gateway address. 3) Restart the VPN client. 4) Reconnect using the new AD password. If the issue persists, verify the user's AD account is not locked (check via AD Users and Computers or PowerShell: Get-ADUser -Identity username -Properties LockedOut). Time-sensitive: cached credentials expire within 24 hours in most configurations, but manual clearance is faster.",
+      "resolution_time_minutes": 15,
+      "last_updated": "2025-01-10"
+    },
+    {
+      "article_id": "KB002",
+      "title": "MFA Token Out of Sync with Authentication Server",
+      "category": "Access/Authentication",
+      "services": ["MFA", "VPN", "SSO"],
+      "keywords": ["mfa", "token", "sync", "two-factor", "2fa", "authenticator", "code", "invalid", "expired", "otp"],
+      "content": "MFA time-based tokens (TOTP) can drift out of sync if the user's device clock is incorrect or the token seed was corrupted. Symptoms: codes are consistently rejected despite appearing valid. Resolution: 1) Verify device clock is set to automatic (Settings > Date & Time > Set Automatically). 2) If clock is correct, perform a token resync from the MFA admin console (Duo Admin > Users > select user > Resync Token). 3) If resync fails, revoke the old token and issue a new one. 4) User must re-enroll by scanning a new QR code. Note: if this happens to multiple users simultaneously, escalate to the identity team — this may indicate an authentication server time drift.",
+      "resolution_time_minutes": 20,
+      "last_updated": "2025-02-15"
+    },
+    {
+      "article_id": "KB003",
+      "title": "Shared Mailbox Not Appearing in Outlook Desktop Client",
+      "category": "Email",
+      "services": ["Email", "Outlook", "Exchange"],
+      "keywords": ["shared", "mailbox", "outlook", "missing", "exchange", "automapping", "permissions", "owa"],
+      "content": "Shared mailboxes rely on Exchange automapping to appear in Outlook. If automapping breaks, the mailbox disappears from the folder pane but remains accessible via OWA. Common causes: 1) Automapping was disabled during a recent permission change. 2) The Outlook profile cache is corrupt. 3) Full Access permissions were removed and re-added without the -AutoMapping flag. Resolution: 1) Verify permissions: Get-MailboxPermission -Identity 'SharedMailbox' | where {$_.User -like '*username*'}. 2) If permissions exist but automapping is off, remove and re-add: Remove-MailboxPermission then Add-MailboxPermission -Identity 'SharedMailbox' -User 'username' -AccessRights FullAccess -AutoMapping $true. 3) User must restart Outlook (full restart, not just close). 4) If still missing, clear the Outlook profile and create a new one. Note: OWA access confirms the permissions are correct — this is almost always a client-side caching issue.",
+      "resolution_time_minutes": 25,
+      "last_updated": "2025-03-01"
+    },
+    {
+      "article_id": "KB004",
+      "title": "Software Installation Error 0x80070005 Access Denied",
+      "category": "Software",
+      "services": ["Software", "SCCM", "Intune"],
+      "keywords": ["install", "error", "0x80070005", "access", "denied", "permissions", "admin", "sccm", "intune", "company portal", "software center"],
+      "content": "Error 0x80070005 is a Windows access-denied error during software installation. In a managed environment using SCCM or Intune, this typically means: 1) The deployment hasn't targeted the user's device yet (check SCCM Device Collections or Intune Group Assignments). 2) The user's device hasn't checked in recently (trigger a manual policy refresh: SCCM > Actions > Machine Policy Retrieval, or Intune > Sync). 3) The installation account lacks local admin rights (check if the deployment is set to 'Install for system' vs 'Install for user'). 4) UAC is blocking the elevation (check deployment settings for 'Allow users to interact with the installation'). Resolution: 1) Verify the app deployment targets the user or device. 2) Force a policy sync on the device. 3) Check deployment settings — most enterprise installs should use 'Install for system' context. 4) If the user is confirmed approved, re-deploy or manually push the installation. Note: the fact that a colleague installed it successfully suggests the app itself is fine — this is a targeting or sync issue.",
+      "resolution_time_minutes": 30,
+      "last_updated": "2025-01-25"
+    },
+    {
+      "article_id": "KB005",
+      "title": "Account Lockout After Password Change — Multiple Systems",
+      "category": "Access/Authentication",
+      "services": ["Active Directory", "VPN", "Email", "SSO"],
+      "keywords": ["lockout", "locked", "account", "password", "change", "multiple", "systems", "services", "cached", "credentials"],
+      "content": "After a password change, old cached credentials on various systems and devices can cause repeated failed login attempts, leading to account lockout. Common culprits: mobile email apps, VPN clients, mapped drives, scheduled tasks running under the user's credentials, and browser-saved passwords for SSO portals. Resolution: 1) Unlock the account in AD: Unlock-ADAccount -Identity username. 2) Identify the lockout source: check Security Event Logs on the DC (Event ID 4740) or use Account Lockout Tools (LockoutStatus.exe) to find which machine is sending bad credentials. 3) On the source machine, update or remove saved credentials: Credential Manager, Outlook profiles, VPN client, and mobile device mail apps. 4) Have the user log out and back in on their primary workstation to refresh the Kerberos ticket. Prevention: advise users to update all devices immediately after a password change, starting with their primary workstation.",
+      "resolution_time_minutes": 20,
+      "last_updated": "2024-12-05"
+    },
+    {
+      "article_id": "KB006",
+      "title": "SSO Browser Cache Causing Authentication Loop",
+      "category": "Access/Authentication",
+      "services": ["SSO", "Browser", "Okta", "Azure AD"],
+      "keywords": ["sso", "loop", "redirect", "browser", "cache", "cookies", "authentication", "okta", "azure", "saml"],
+      "content": "SSO authentication loops occur when stale browser cookies or cached SAML tokens conflict with the identity provider. The user sees a repeated redirect between the app and the SSO login page without ever completing authentication. Resolution: 1) Clear browser cookies and cache for the SSO domain specifically (not all cookies — that's unnecessary). In Chrome: Settings > Privacy > Cookies > See all cookies > search for the IdP domain > Remove. 2) Try an incognito/private window — if it works there, the issue is confirmed as browser-state related. 3) If the issue persists in incognito, check if the user's SSO session expired on the IdP side (Okta Admin > User > Sessions > Clear). 4) For Azure AD: check Conditional Access policies — a new policy may be blocking the device. Note: if multiple users hit this simultaneously, it's likely an IdP configuration change, not a client issue. Escalate to the identity team.",
+      "resolution_time_minutes": 15,
+      "last_updated": "2025-02-20"
+    },
+    {
+      "article_id": "KB007",
+      "title": "Remote Desktop Connection Refused — Network Level Authentication",
+      "category": "Network",
+      "services": ["Remote Desktop", "RDP", "Network"],
+      "keywords": ["rdp", "remote", "desktop", "refused", "nla", "network", "level", "authentication", "connection", "certificate"],
+      "content": "When an RDP connection is refused with 'The remote computer requires Network Level Authentication' or 'An authentication error has occurred', the cause is typically: 1) The user's credentials are not being passed correctly (especially after a password change). 2) The target machine's certificate is untrusted by the client. 3) CredSSP encryption oracle remediation policy mismatch between client and server. Resolution: 1) Verify the user can ping the target host (rules out basic connectivity). 2) Try connecting with explicit credentials: mstsc /v:hostname /admin. 3) Check CredSSP policy: Computer Configuration > Administrative Templates > System > Credentials Delegation > Encryption Oracle Remediation — should be set to 'Vulnerable' for testing or 'Mitigated' with both machines patched. 4) If certificate error, the target machine needs its RDP certificate renewed or the CA cert installed on the client. Note: 'Connection refused' (not 'timed out') means the port is reachable but the handshake fails — this is auth, not firewall.",
+      "resolution_time_minutes": 30,
+      "last_updated": "2025-01-15"
+    },
+    {
+      "article_id": "KB008",
+      "title": "Email Profile Corruption in Outlook — Repeated Credential Prompts",
+      "category": "Email",
+      "services": ["Email", "Outlook", "Exchange"],
+      "keywords": ["outlook", "credential", "prompt", "password", "keeps", "asking", "profile", "corrupt", "repair"],
+      "content": "If Outlook repeatedly prompts for credentials despite the user entering the correct password, the Outlook profile is likely corrupt. This differs from a password issue because OWA works fine. Resolution: 1) Try repairing the profile first: File > Account Settings > Account Settings > select account > Repair. 2) If repair fails, create a new Outlook profile: Control Panel > Mail > Show Profiles > Add. Configure the new profile and set it as default. 3) Delete the old profile only after confirming the new one works. 4) Check the Credential Manager and remove any stored Outlook/Exchange entries — these can conflict. 5) Verify Modern Authentication is enabled: registry key HKCU\\Software\\Microsoft\\Office\\16.0\\Common\\Identity\\EnableADAL should be 1. Note: if this is happening to multiple users, check if Exchange OAuth certificates have expired on the server side.",
+      "resolution_time_minutes": 20,
+      "last_updated": "2025-03-10"
+    },
+    {
+      "article_id": "KB009",
+      "title": "Endpoint Certificate Trust Failure — Internal Sites Showing Security Warning",
+      "category": "Security",
+      "services": ["Security", "Certificates", "Browser", "Network"],
+      "keywords": ["certificate", "trust", "ssl", "tls", "security", "warning", "internal", "site", "https", "expired", "ca"],
+      "content": "Internal websites showing 'Your connection is not private' or certificate warnings usually means the endpoint doesn't trust the internal CA (Certificate Authority). Common in new machines, re-imaged devices, or personal devices. Resolution: 1) Check if the internal root CA certificate is installed: certmgr.msc > Trusted Root Certification Authorities. 2) If missing, install it via Group Policy refresh: gpupdate /force. 3) If the device isn't domain-joined, manually import the root CA cert (get it from the PKI team or internal CA portal). 4) If the cert is present but the warning persists, the internal site's certificate may have expired — check the cert details in the browser (click the warning > Certificate > Valid To). 5) For Chrome specifically, check chrome://flags for any certificate-related experimental flags that may override trust. Escalation: if the root CA cert is installed and valid but warnings continue, escalate to the PKI/security team.",
+      "resolution_time_minutes": 25,
+      "last_updated": "2024-11-20"
+    },
+    {
+      "article_id": "KB010",
+      "title": "Laptop Docking Station — External Monitors Not Detected",
+      "category": "Hardware",
+      "services": ["Hardware", "Laptop", "Docking Station"],
+      "keywords": ["monitor", "display", "dock", "docking", "station", "external", "screen", "detected", "hdmi", "displayport", "usb-c"],
+      "content": "When external monitors are not detected through a docking station: 1) Check physical connections — reseat the USB-C/Thunderbolt cable between laptop and dock. 2) Try connecting a monitor directly to the laptop (bypasses the dock to isolate the issue). 3) Check Display Settings (Win+P) — ensure it's not set to 'PC screen only'. 4) Update docking station firmware (check manufacturer's support page — Dell, Lenovo, and HP all have dock firmware update utilities). 5) Update display drivers: Device Manager > Display Adapters > right-click > Update Driver. 6) If using a USB-C dock, verify the laptop port supports DisplayPort Alt Mode (not all USB-C ports do). 7) Try a different dock if available — dock hardware failure is more common than people expect. Note: if monitors flicker or disconnect intermittently rather than not being detected at all, this is usually a cable quality issue — try a certified cable.",
+      "resolution_time_minutes": 20,
+      "last_updated": "2025-02-01"
+    }
+  ]

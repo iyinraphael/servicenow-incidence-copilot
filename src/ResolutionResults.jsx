@@ -1,4 +1,4 @@
-export default function ResolutionResults({ kbResults, resolution, onReset, onBack }) {
+export default function ResolutionResults({ kbResults, resolution, onReset, onBack, onProceedToApproval }) {
     // Evidence strength styling
     const evidenceStyle = {
       strong:   { background: '#f0fdf4', color: '#166534', border: '1px solid #86efac', label: 'Strong Evidence' },
@@ -197,15 +197,14 @@ export default function ResolutionResults({ kbResults, resolution, onReset, onBa
             New Incident
           </button>
           <button
-            disabled
-            title="Coming in Phase 3"
+            onClick={onProceedToApproval}
             style={{
-              padding: '10px 20px', fontSize: 14,
-              background: '#2563eb', color: 'white', border: 'none', borderRadius: 6,
-              opacity: 0.5, cursor: 'not-allowed',
+              padding: '10px 20px', fontSize: 14, fontWeight: 600,
+              background: '#16a34a', color: 'white',
+              border: 'none', borderRadius: 6, cursor: 'pointer',
             }}
           >
-            Approve & Create in ServiceNow →
+            Review & Approve →
           </button>
         </div>
       </div>

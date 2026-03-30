@@ -5,6 +5,9 @@ import TriageResults from './triageResult.jsx'
 import { searchKnowledgeBase } from './retrieval.js'
 import { generateResolution } from './resolution.js'
 import ResolutionResults from './ResolutionResults.jsx'
+import ApprovalReview from './ApprovalReview.jsx'
+import SuccessScreen from './SuccessScreen.jsx'
+import { createIncident, updateIncident } from './servicenow.js'
 
 
 export default function App() {
@@ -22,6 +25,8 @@ export default function App() {
     const [error, setError] = useState(null)
     const [kbResults, setKbResults] = useState(null)
     const [resolution, setResolution] = useState(null)
+    const [snowResult, setSnowResult] = useState(null)
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     const updateField = (field, value) => {
         setForm(prev => ({ ...prev, [field]: value }))
@@ -51,11 +56,14 @@ export default function App() {
 
     const handleReset = () => {
         setPhase('intake')
+        setForm({ title: '', description: '', affected_service: '', requester: '', environment: '', incident_number: '' })
         setTriageResult(null)
         setKbResults(null)
         setResolution(null)
+        setSnowResult(null)
         setError(null)
-    }
+        setIsSubmitting(false)
+      }
 
     const loadSample = (sample) => {
         setForm({ ...sample, incident_number: '' })
@@ -87,31 +95,115 @@ export default function App() {
         setResolution(null)
     }
 
-    const testIncident = {
-        title: 'VPN authentication failing after password reset',
-        description: 'User reset password. VPN shows authentication failed.',
-        affected_service: 'VPN'
+    // Move from resolution screen to approval screen
+const handleProceedToApproval = () => {
+    setPhase('approval')
+}
+
+// Handle ServiceNow writeback
+const handleApprove = async (approvedFields) => {
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+        let result
+
+        if (form.incident_number && form.incident_number.trim()) {
+            // Update existing incident
+            result = await updateIncident(form.incident_number.trim(), approvedFields)
+            result._isUpdate = true
+        } else {
+            // Create new incident
+            result = await createIncident(approvedFields)
+            result._isUpdate = false
+        }
+
+        setSnowResult(result)
+        setPhase('success')
+    } catch (err) {
+        console.error('ServiceNow write failed:', err)
+        setError(`ServiceNow write failed: ${err.message}. Your analysis is preserved — you can retry.`)
+        // Stay on approval screen so nothing is lost
+    } finally {
+        setIsSubmitting(false)
     }
-      
-      const results = searchKnowledgeBase(testIncident)
-      console.log(results)
+}
+
+// Reject — go back to intake, clear everything
+const handleReject = () => {
+    handleReset()
+}
+
+// Regenerate — re-run KB search and resolution with same form data
+const handleRegenerate = async () => {
+    setPhase('searching')
+    setError(null)
+
+    try {
+        const articles = searchKnowledgeBase(form)
+        setKbResults(articles)
+        const draft = await generateResolution(form, triageResult, articles)
+        setResolution(draft)
+        setPhase('resolution')
+    } catch (err) {
+        console.error('Regeneration failed:', err)
+        setError(err.message)
+        setPhase('resolution') // fall back to previous resolution
+    }
+}
+
+
 
     return (
         <div style={{ maxWidth: 700, margin: '40px auto', fontFamily: 'sans-serif' }}>
             <h1>AI Triage Workbench</h1>
-            {/* Error display */}
-            {error && <p style={{ color: 'red', marginBottom: 16 }}>{error}</p>}
 
-            {/* Phase: Resolution results */}
-            {phase === 'resolution' && resolution && kbResults ? (
+            {error && (
+                <div
+                    style={{
+                        background: '#fef2f2',
+                        border: '1px solid #fca5a5',
+                        borderRadius: 8,
+                        padding: 12,
+                        marginBottom: 16,
+                        color: '#991b1b',
+                        fontSize: 14,
+                    }}
+                >
+                    {error}
+                </div>
+            )}
+
+            {/* Phase: Success */}
+            {phase === 'success' && snowResult ? (
+                <SuccessScreen
+                    result={snowResult}
+                    isUpdate={snowResult._isUpdate}
+                    snowInstance={import.meta.env.VITE_SNOW_INSTANCE}
+                    onNewIncident={handleReset}
+                />
+            ) : phase === 'approval' && triageResult && resolution ? (
+                /* Phase: Approval review */
+                <ApprovalReview
+                    form={form}
+                    triageResult={triageResult}
+                    resolution={resolution}
+                    onApprove={handleApprove}
+                    onReject={handleReject}
+                    onRegenerate={handleRegenerate}
+                    isSubmitting={isSubmitting}
+                />
+            ) : phase === 'resolution' && resolution && kbResults ? (
+                /* Phase: Resolution results */
                 <ResolutionResults
                     kbResults={kbResults}
                     resolution={resolution}
                     onReset={handleReset}
                     onBack={handleBackToTriage}
+                    onProceedToApproval={handleProceedToApproval}
                 />
             ) : phase === 'searching' ? (
-                /* Phase: Searching / loading */
+                /* Phase: Searching */
                 <p>Searching knowledge base and generating resolution...</p>
             ) : phase === 'results' && triageResult ? (
                 /* Phase: Triage results */
@@ -153,7 +245,7 @@ export default function App() {
                             <input
                                 type="text"
                                 value={form.title}
-                                onChange={e => updateField('title', e.target.value)}
+                                onChange={(e) => updateField('title', e.target.value)}
                                 placeholder="e.g. VPN authentication failing after password reset"
                                 style={{ display: 'block', width: '100%', padding: 8, marginTop: 4 }}
                             />
@@ -164,7 +256,7 @@ export default function App() {
                             <strong>Detailed Description *</strong>
                             <textarea
                                 value={form.description}
-                                onChange={e => updateField('description', e.target.value)}
+                                onChange={(e) => updateField('description', e.target.value)}
                                 rows={5}
                                 placeholder="What happened? When did it start? What has the user tried?"
                                 style={{ display: 'block', width: '100%', padding: 8, marginTop: 4 }}
@@ -176,7 +268,7 @@ export default function App() {
                             <strong>Affected Service</strong>
                             <select
                                 value={form.affected_service}
-                                onChange={e => updateField('affected_service', e.target.value)}
+                                onChange={(e) => updateField('affected_service', e.target.value)}
                                 style={{ display: 'block', width: '100%', padding: 8, marginTop: 4 }}
                             >
                                 <option value="">Select a service...</option>
@@ -195,7 +287,7 @@ export default function App() {
                             <strong>Environment</strong>
                             <select
                                 value={form.environment}
-                                onChange={e => updateField('environment', e.target.value)}
+                                onChange={(e) => updateField('environment', e.target.value)}
                                 style={{ display: 'block', width: '100%', padding: 8, marginTop: 4 }}
                             >
                                 <option value="">Select...</option>
@@ -213,7 +305,7 @@ export default function App() {
                             <input
                                 type="text"
                                 value={form.requester}
-                                onChange={e => updateField('requester', e.target.value)}
+                                onChange={(e) => updateField('requester', e.target.value)}
                                 placeholder="e.g. Jane Doe"
                                 style={{ display: 'block', width: '100%', padding: 8, marginTop: 4 }}
                             />
@@ -225,7 +317,7 @@ export default function App() {
                             <input
                                 type="text"
                                 value={form.incident_number}
-                                onChange={e => updateField('incident_number', e.target.value)}
+                                onChange={(e) => updateField('incident_number', e.target.value)}
                                 placeholder="e.g. INC0012345"
                                 style={{ display: 'block', width: '100%', padding: 8, marginTop: 4 }}
                             />

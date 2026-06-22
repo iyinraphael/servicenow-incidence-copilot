@@ -65,6 +65,29 @@ export default function App() {
         setIsSubmitting(false)
       }
 
+    const STEPS = [
+        { key: 'intake', label: 'Intake' },
+        { key: 'results', label: 'Triage' },
+        { key: 'resolution', label: 'Resolution' },
+        { key: 'approval', label: 'Approval' },
+        { key: 'success', label: 'Submitted' },
+    ]
+    const activePhase = ['analyzing'].includes(phase) ? 'intake'
+        : ['searching'].includes(phase) ? 'resolution'
+        : phase
+    const activeStepIndex = STEPS.findIndex(s => s.key === activePhase)
+
+    const CARD_TITLES = {
+        intake: ['New Incident', 'Enter incident details to generate an AI triage and resolution draft.'],
+        analyzing: ['Analyzing Incident', 'Claude is classifying priority, impact, and urgency.'],
+        results: ['Triage Results', 'AI-suggested classification for this incident.'],
+        searching: ['Searching Knowledge Base', 'Matching this incident against known resolutions.'],
+        resolution: ['Resolution Draft', 'Grounded resolution based on knowledge base matches.'],
+        approval: ['Review & Approve', 'Confirm the fields below before writing to ServiceNow.'],
+        success: ['Submitted to ServiceNow', 'The incident record has been written successfully.'],
+    }
+    const [cardTitle, cardSubtitle] = CARD_TITLES[phase] || CARD_TITLES.intake
+
     const loadSample = (sample) => {
         setForm({ ...sample, incident_number: '' })
         setError(null)
@@ -155,26 +178,56 @@ const handleRegenerate = async () => {
 
 
     return (
-        <div style={{ maxWidth: 700, margin: '40px auto', fontFamily: 'sans-serif' }}>
-            <h1>AI Triage Workbench</h1>
-
-            {error && (
-                <div
-                    style={{
-                        background: '#fef2f2',
-                        border: '1px solid #fca5a5',
-                        borderRadius: 8,
-                        padding: 12,
-                        marginBottom: 16,
-                        color: '#991b1b',
-                        fontSize: 14,
-                    }}
-                >
-                    {error}
+        <div className="app-shell">
+            <header className="topbar">
+                <div className="topbar-inner">
+                    <div className="brand">
+                        <div className="brand-mark">AI</div>
+                        <div className="brand-text">
+                            <h1>AI Triage Workbench</h1>
+                            <p>ServiceNow Incident Copilot</p>
+                        </div>
+                    </div>
+                    <span className="env-badge">{import.meta.env.VITE_SNOW_INSTANCE ? 'Connected' : 'Demo Mode'}</span>
                 </div>
-            )}
+            </header>
 
-            {/* Phase: Success */}
+            <nav className="stepper">
+                {STEPS.map((step, i) => (
+                    <div
+                        key={step.key}
+                        className={
+                            'step' +
+                            (i === activeStepIndex ? ' is-active' : i < activeStepIndex ? ' is-done' : '')
+                        }
+                    >
+                        {step.label}
+                    </div>
+                ))}
+            </nav>
+
+            <main className="content">
+                <div className="card">
+                    <h2 className="card-title">{cardTitle}</h2>
+                    <p className="card-subtitle">{cardSubtitle}</p>
+
+                    {error && (
+                        <div
+                            style={{
+                                background: '#fef2f2',
+                                border: '1px solid #fca5a5',
+                                borderRadius: 8,
+                                padding: 12,
+                                marginBottom: 16,
+                                color: '#991b1b',
+                                fontSize: 14,
+                            }}
+                        >
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Phase: Success */}
             {phase === 'success' && snowResult ? (
                 <SuccessScreen
                     result={snowResult}
@@ -334,6 +387,8 @@ const handleRegenerate = async () => {
                     </div>
                 </>
             )}
+                </div>
+            </main>
         </div>
     )
 }

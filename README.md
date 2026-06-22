@@ -2,6 +2,9 @@
 
 An AI-powered triage workbench that analyzes IT incidents, searches a knowledge base, drafts resolutions, and writes approved results back to ServiceNow.
 
+![Main UI](images/copilot_img.png)
+
+
 ## What it does
 
 1. **Intake** — analyst fills in incident details (or loads a sample)
@@ -10,6 +13,10 @@ An AI-powered triage workbench that analyzes IT incidents, searches a knowledge 
 4. **Resolution** — Claude drafts a resolution using the triage result + KB articles
 5. **Approval** — analyst reviews and edits before anything is sent to ServiceNow
 6. **Writeback** — creates or updates the incident in ServiceNow via REST API
+
+## Why this exists
+
+Cuts IT incident handling time by drafting resolutions analysts can approve in one click
 
 ---
 
